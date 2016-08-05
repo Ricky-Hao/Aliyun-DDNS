@@ -5,9 +5,10 @@ from aliyunsdkalidns.request.v20150109 import DescribeDomainRecordsRequest
 import json
 import re
 import requests
+import os 
 
 class Client:
-    config=json.load(file("config.json"))
+    config=json.load(file(os.path.split(os.path.realpath(__file__))[0]+"/config.json"))
     clt=client.AcsClient(config['Key'].encode(),config['Secret'].encode(),config['Region'].encode());
 
     def GetRecordID(self):
@@ -38,3 +39,4 @@ if __name__ =='__main__':
         client.GetRecordID();
     client.GetIP()
     client.UpdateRecord()
+    exit()
