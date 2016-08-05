@@ -11,29 +11,29 @@ class Client:
 
     def GetRecordID(self):
         id_r=DescribeDomainRecordsRequest.DescribeDomainRecordsRequest()
-        id_r.set_DomainName(config['Domain'].encode())
-        id_r.set_RRKeyWord(config['RR'].encode())
-        id_re=clt.do_action(id_r)
-        config['RecordID']=re.findall(pattern="<RecordId>(\d*)</RecordId>",string=id_re)[0]
+        id_r.set_DomainName(self.config['Domain'].encode())
+        id_r.set_RRKeyWord(self.config['RR'].encode())
+        id_re=self.clt.do_action(id_r)
+        self.config['RecordID']=re.findall(pattern="<RecordId>(\d*)</RecordId>",string=id_re)[0]
         with open("config.json","w") as f:
-            f.write(json.dumps(config))
+            f.write(json.dumps(self.config))
 
     def GetIP(self):
         r=requests.get("http://icanhazip.com")
-        config['IP']=r.text.strip('\n')
+        self.config['IP']=r.text.strip('\n')
     
     def UpdateRecord(self):
         ur_r=UpdateDomainRecordRequest.UpdateDomainRecordRequest()
-        ur_r.set_RR(config['RR'].encode())
-        ur_r.set_RecordId(config['RecordID'].encode())
+        ur_r.set_RR(self.config['RR'].encode())
+        ur_r.set_RecordId(self.config['RecordID'].encode())
         ur_r.set_Type('A')
-        ur_r.set_Value(config['IP'].encode())
-        ur_re=clt.do_action(ur_r)
+        ur_r.set_Value(self.config['IP'].encode())
+        ur_re=self.clt.do_action(ur_r)
         print(ur_re)
 
 if __name__ =='__main__':
     client=Client()
-    if !client.config.has_key('RecordID'):
+    if not client.config.has_key('RecordID'):
         client.GetRecordID();
     client.GetIP()
     client.UpdateRecord()
