@@ -13,4 +13,4 @@ And then fill the *Key,Secret,Region,RR*.
 
 *Region* maybe you could use *cn-qingdao*.
 
-*RR* is your Domain's prefix. (Example:*@* for *xxx.com*, *test* for *test.xxx.com*.)
+*RR* is your Domain's prefix. (Example: *test* for *test.xxx.com*.)
