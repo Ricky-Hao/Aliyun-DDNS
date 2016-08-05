@@ -1,3 +1,4 @@
+#!/usr/bin/python2.7
 from aliyunsdkcore import client
 from aliyunsdkalidns.request.v20150109 import UpdateDomainRecordRequest
 from aliyunsdkalidns.request.v20150109 import DescribeDomainRecordsRequest
