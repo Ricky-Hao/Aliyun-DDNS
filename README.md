@@ -1,9 +1,9 @@
 # Aliyun-DDNS
 A Python DDNS script for Aliyun domain.
-##Installation
-Copy the *config.json.sample* to *config.json*.
 
-    cp config.json.sample config.json
+The new version allow you to apply more config at a time.
+##Installation
+Copy the sample config *config.json.sample* in *conf.d* as your own config.
     
 And then fill the *Key,Secret,Region,RR*.
 

@@ -1,15 +1,22 @@
 #!/usr/bin/python2.7
-from aliyunsdkcore import client
+from aliyunsdkcore import client as acsclient
 from aliyunsdkalidns.request.v20150109 import UpdateDomainRecordRequest
 from aliyunsdkalidns.request.v20150109 import DescribeDomainRecordsRequest
+import time
 import json
 import re
 import requests
 import os 
 
 class Client:
-    config=json.load(file(os.path.split(os.path.realpath(__file__))[0]+"/config.json"))
-    clt=client.AcsClient(config['Key'].encode(),config['Secret'].encode(),config['Region'].encode());
+    def __init__(self,filepath):
+        self.filepath=filepath
+        self.config=json.load(file(self.filepath))
+        self.clt=acsclient.AcsClient(self.config['Key'].encode(),self.config['Secret'].encode(),self.config['Region'].encode());
+        if not self.config.has_key('RecordID'):
+            self.GetRecordID()
+        self.GetIP()
+        self.UpdateRecord()
 
     def GetRecordID(self):
         id_r=DescribeDomainRecordsRequest.DescribeDomainRecordsRequest()
@@ -17,8 +24,8 @@ class Client:
         id_r.set_RRKeyWord(self.config['RR'].encode())
         id_re=self.clt.do_action(id_r)
         self.config['RecordID']=re.findall(pattern="<RecordId>(\d*)</RecordId>",string=id_re)[0]
-        with open("config.json","w") as f:
-            f.write(json.dumps(self.config))
+        with open(self.filepath,"w") as f:
+                f.write(json.dumps(self.config))
 
     def GetIP(self):
         r=requests.get("http://icanhazip.com")
@@ -30,13 +37,21 @@ class Client:
         ur_r.set_RecordId(self.config['RecordID'].encode())
         ur_r.set_Type('A')
         ur_r.set_Value(self.config['IP'].encode())
+        ur_r.set_Line("default")
         ur_re=self.clt.do_action(ur_r)
-        print(ur_re)
-
+        '''with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
+            f.write(ur_re)
+            f.write("\n")
+        '''
 if __name__ =='__main__':
-    client=Client()
-    if not client.config.has_key('RecordID'):
-        client.GetRecordID();
-    client.GetIP()
-    client.UpdateRecord()
+    ma=re.compile("(.*\.json)")
+    w=os.walk(os.path.split(os.path.realpath(__file__))[0]+"/conf.d")
+    for a,b,c in w:
+        for fn in c:
+            if ma.match(fn) and fn!="config.json.sample":
+                client=Client(os.path.join(a,fn))
+    '''with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
+        f.write(time.ctime())
+        f.write("\n")
+    '''
     exit()
