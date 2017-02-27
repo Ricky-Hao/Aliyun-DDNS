@@ -45,7 +45,7 @@ def Log(s):
         f.write("\n")
 
 def GetIP():
-    r=requests.get("http://icanhazip.com")
+    r=requests.get("http://ipv4.icanhazip.com")
     return r.text.strip('\n')
     
 
