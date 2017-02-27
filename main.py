@@ -9,13 +9,13 @@ import requests
 import os 
 
 class Client:
-    def __init__(self,filepath):
+    def __init__(self,filepath,ip):
         self.filepath=filepath
         self.config=json.load(file(self.filepath))
         self.clt=acsclient.AcsClient(self.config['Key'].encode(),self.config['Secret'].encode(),self.config['Region'].encode());
         if not self.config.has_key('RecordID'):
             self.GetRecordID()
-        self.GetIP()
+        self.config['IP']=ip
         self.UpdateRecord()
 
     def GetRecordID(self):
@@ -27,10 +27,6 @@ class Client:
         with open(self.filepath,"w") as f:
                 f.write(json.dumps(self.config))
 
-    def GetIP(self):
-        r=requests.get("http://icanhazip.com")
-        self.config['IP']=r.text.strip('\n')
-    
     def UpdateRecord(self):
         ur_r=UpdateDomainRecordRequest.UpdateDomainRecordRequest()
         ur_r.set_RR(self.config['RR'].encode())
@@ -39,19 +35,28 @@ class Client:
         ur_r.set_Value(self.config['IP'].encode())
         ur_r.set_Line("default")
         ur_re=self.clt.do_action(ur_r)
-        '''with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
-            f.write(ur_re)
-            f.write("\n")
-        '''
+        Log(ur_re)
+
+def Log(s):
+    if not is_log:
+        return
+    with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
+        f.write(s)
+        f.write("\n")
+
+def GetIP():
+    r=requests.get("http://icanhazip.com")
+    return r.text.strip('\n')
+    
+
 if __name__ =='__main__':
+    is_log=0
     ma=re.compile("(.*\.json)")
     w=os.walk(os.path.split(os.path.realpath(__file__))[0]+"/conf.d")
+    ip=GetIP()
     for a,b,c in w:
         for fn in c:
             if ma.match(fn) and fn!="config.json.sample":
-                client=Client(os.path.join(a,fn))
-    '''with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
-        f.write(time.ctime())
-        f.write("\n")
-    '''
+                client=Client(os.path.join(a,fn),ip)
+    Log(time.ctime())
     exit()
