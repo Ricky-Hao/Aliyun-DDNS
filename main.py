@@ -40,7 +40,7 @@ class Client:
 def Log(s):
     if not is_log:
         return
-    with open(os.path.split(os.path.realpath(__file__))[0]+"/output.log","a+") as f:
+    with open(path+"/output.log","a+") as f:
         f.write(s)
         f.write("\n")
 
@@ -48,15 +48,32 @@ def GetIP():
     r=requests.get("http://ipv4.icanhazip.com")
     return r.text.strip('\n')
     
+def CheckLock():
+    if(os.path.exists(path+"/Aliyun-DDNS.lock")):
+        with open(path+"/Aliyun-DDNS.lock",'r') as f:
+            pid=f.read()
+        os.system("kill -9 "+pid)
+        os.remove(path+"/Aliyun-DDNS.lock")
+        CheckLock()
+    else:
+        with open(path+"/Aliyun-DDNS.lock",'w')as f:
+            f.write(str(os.getpid()))
+
+def RemoveLock():
+    os.remove(path+"/Aliyun-DDNS.lock")
+
 
 if __name__ =='__main__':
+    path=os.path.split(os.path.realpath(__file__))[0]
+    CheckLock()
     is_log=0
     ma=re.compile("(.*\.json)")
-    w=os.walk(os.path.split(os.path.realpath(__file__))[0]+"/conf.d")
+    w=os.walk(path+"/conf.d")
     ip=GetIP()
     for a,b,c in w:
         for fn in c:
             if ma.match(fn) and fn!="config.json.sample":
                 client=Client(os.path.join(a,fn),ip)
     Log(time.ctime())
+    RemoveLock()
     exit()
