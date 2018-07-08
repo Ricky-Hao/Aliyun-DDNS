@@ -105,3 +105,4 @@ conf.d/
 build/
 .spec
 dist/
+.vscode/
