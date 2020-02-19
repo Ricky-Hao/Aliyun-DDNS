@@ -3,90 +3,112 @@
 import os
 import json
 import requests
-import time
 import signal
+import logging
 from xml.etree.ElementTree import fromstring
 from aliyunsdkcore.client import AcsClient
 from aliyunsdkalidns.request.v20150109 import UpdateDomainRecordRequest, DescribeDomainRecordsRequest
 
-
 SCRIPT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FOLDER = os.path.join(SCRIPT_FOLDER, 'conf.d')
-LOG_PATH = os.path.join(SCRIPT_FOLDER, 'log.txt')
 LOCK_PATH = os.path.join(SCRIPT_FOLDER, '.lock')
+
+logger = logging.getLogger('Aliyun-DDNS')
 
 
 class Client:
-    def __init__(self,filepath,ip):
+    def __init__(self, filepath: str):
         self.filepath = filepath
         with open(filepath, 'r') as f:
-            self.config = json.load(f)
-        self.clt = AcsClient(self.config.get('Key'), self.config.get('Secret'), self.config.get('Region'))
-        if not self.config.get('RecordID'):
-            self.GetRecordID()
-        self.config['IP']=ip
-        self.UpdateRecord()
+            self._config = json.load(f)
 
-    def GetRecordID(self):
-        id_r = DescribeDomainRecordsRequest.DescribeDomainRecordsRequest()
-        id_r.set_DomainName(self.config.get('Domain'))
-        id_r.set_RRKeyWord(self.config.get('RR'))
-        id_re = self.clt.do_action(id_r)
-        id_xml = fromstring(id_re.decode())
-        self.config['RecordID'] = id_xml.find('DomainRecords/Record/RecordId').text
+        self.domain_name = self._config['Domain']
+        self.rr = self._config['RR']
+        self.domain = '{0}.{1}'.format(self.rr, self.domain_name)
+        self.record_id = self._config.get('RecordID')
+        self.ip = self._config.get('IP')
+
+        logger.debug('Read config: {0}'.format(filepath))
+
+        self._client = AcsClient(self._config.get('Key'), self._config.get('Secret'), self._config.get('Region'))
+
+        if self.record_id is None:
+            self.get_record_id()
+
+        if self.ip_changed():
+            self.update_record()
+
+    def get_record_id(self) -> None:
+        id_req = DescribeDomainRecordsRequest.DescribeDomainRecordsRequest()
+        id_req.set_DomainName(self.domain_name)
+        id_req.set_RRKeyWord(self.rr)
+        id_res = self._client.do_action_with_exception(id_req)
+        id_xml = fromstring(id_res.decode())
+        self.record_id = id_xml.find('DomainRecords/Record/RecordId').text
+        logger.debug('Get RecordID for domain: {0}.'.format(self.domain))
+
+    def ip_changed(self) -> bool:
+        ip = self.get_ip()
+        if self.ip is None or self.ip != ip:
+            self.ip = ip
+            return True
+        else:
+            return False
+
+
+    def update_record(self) -> None:
+        update_req = UpdateDomainRecordRequest.UpdateDomainRecordRequest()
+        update_req.set_RR(self.rr)
+        update_req.set_RecordId(self.record_id)
+        update_req.set_Type('A')
+        update_req.set_Value(self.ip)
+        update_req.set_Line("default")
+        update_res = self._client.do_action_with_exception(update_req)
+        logger.debug(update_res.decode())
+        logger.info('Update record for domain: {0} with ip: {1}'.format(self.domain, self.ip))
+        self.save()
+
+    def save(self) -> None:
+        self._config['RecordID'] = self.record_id
+        self._config['IP'] = self.ip
         with open(self.filepath, "w") as f:
-                f.write(json.dumps(self.config))
+            f.write(json.dumps(self._config))
+        logger.debug('Save config: {0}.'.format(self.filepath))
 
-    def UpdateRecord(self):
-        ur_r = UpdateDomainRecordRequest.UpdateDomainRecordRequest()
-        ur_r.set_RR(self.config['RR'])
-        ur_r.set_RecordId(self.config['RecordID'])
-        ur_r.set_Type('A')
-        ur_r.set_Value(self.config['IP'])
-        ur_r.set_Line("default")
-        ur_re = self.clt.do_action(ur_r)
-        Log(ur_re)
+    @staticmethod
+    def get_ip() -> str:
+        res = requests.get("http://ipv4.icanhazip.com")
+        if res.status_code != 200:
+            logger.error('Invalid IP:\nStatus Code: {0}\nResponse: {1}'.format(res.status_code, res.text))
+        ip = res.text.strip('\n')
+        logger.debug('Get ip: {0}'.format(ip))
+        return ip
 
-def Log(s):
-    if not is_log:
-        return
-    if isinstance(s, bytes):
-        s = s.decode()
-    with open(LOG_PATH, "a+") as f:
-        f.write(s)
-        f.write("\n")
+    @staticmethod
+    def check_lock() -> None:
+        if os.path.exists(LOCK_PATH):
+            with open(LOCK_PATH, 'r') as f:
+                pid = f.read()
+            try:
+                os.kill(int(pid), signal.SIGTERM)
+            except OSError:
+                pass
+            os.remove(LOCK_PATH)
+            Client.check_lock()
+        else:
+            with open(LOCK_PATH, 'w')as f:
+                f.write(str(os.getpid()))
 
-def GetIP():
-    r = requests.get("http://ipv4.icanhazip.com")
-    return r.text.strip('\n')
-    
-def CheckLock():
-    if os.path.exists(LOCK_PATH):
-        with open(LOCK_PATH, 'r') as f:
-            pid = f.read()
-        try:
-            os.kill(int(pid), signal.SIGTERM)
-        except OSError:
-            pass
+    @staticmethod
+    def remove_lock() -> None:
         os.remove(LOCK_PATH)
-        CheckLock()
-    else:
-        with open(LOCK_PATH, 'w')as f:
-            f.write(str(os.getpid()))
-
-def RemoveLock():
-    os.remove(LOCK_PATH)
 
 
-if __name__ =='__main__':
-    CheckLock()
-    is_log = False
-    w = os.walk(CONFIG_FOLDER)
-    ip = GetIP()
-    for a,b,c in w:
-        for fn in c:
-            if fn.endswith('.json'):
-                client=Client(os.path.join(a,fn), ip)
-    Log(time.ctime())
-    RemoveLock()
+if __name__ == '__main__':
+    Client.check_lock()
+    for dir_paths, dir_names, file_names in os.walk(CONFIG_FOLDER):
+        for filename in file_names:
+            if filename.endswith('.json'):
+                client = Client(os.path.join(dir_paths, filename))
+    Client.remove_lock()
     exit()
