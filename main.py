@@ -63,10 +63,14 @@ class Client:
         update_req.set_Type('A')
         update_req.set_Value(self.ip)
         update_req.set_Line("default")
-        update_res = self._client.do_action_with_exception(update_req)
-        logger.debug(update_res.decode())
-        logger.info('Update record for domain: {0} with ip: {1}'.format(self.domain, self.ip))
-        self.save()
+        try:
+            update_res = self._client.do_action_with_exception(update_req)
+            logger.debug(update_res.decode())
+            logger.info('Update record for domain: {0} with ip: {1}'.format(self.domain, self.ip))
+        except Exception as err:
+            logger.error(err)
+        finally:
+            self.save()
 
     def save(self) -> None:
         self._config['RecordID'] = self.record_id
