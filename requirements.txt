@@ -1,7 +1,7 @@
 ﻿aliyun-python-sdk-alidns==2.0.7
 aliyun-python-sdk-core==2.3.5
 aliyun-python-sdk-core-v3==2.8.9
-certifi==2018.4.16
+certifi==2023.7.22
 chardet==3.0.4
 idna==2.7
 requests>=2.20.0
